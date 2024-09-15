@@ -1,6 +1,8 @@
+#! /bin/python
+
 import os.path
-import sys
 import ftplib
+import re
 from concurrent.futures import ThreadPoolExecutor
 import signal
 from functools import partial
@@ -68,25 +70,47 @@ def download(urls: Iterable[str], dest_dir: str):
                 task_id = progress.add_task("download", filename=filename, start=False)
                 pool.submit(copy_url, task_id, url, dest_path)
 
-def traverse(ftp, depth=0):
-    if depth > 10:
-        return ['depth > 10']
-    level = {}
-    for entry in (path for path in ftp.nlst() if path not in ('.', '..')):
-        try:
-            ftp.cwd(entry)
-            level[entry] = traverse(ftp, depth+1)
-            ftp.cwd('..')
-        except:
-            level[entry] = None
-    return level
+def read_conf(name):
+    with open(f'./Modules/{name}.conf', 'r') as file:
+        lines = file.readlines()
+
+    return lines
+
+
+def ftp_traverse(os_name):
+
+    conf_data = read_conf(os_name)
+
+    server = conf_data[0].split('= ')[1].strip()
+    cwd = conf_data[1].split('= ')[1].strip()
+
+    ftp = ftplib.FTP(server)
+    ftp.login()
+    ftp.cwd(cwd)
+    entries = ftp.nlst()
+    match os_name:
+        case "ubuntu":
+            regex = re.compile("[0-9][0-9].[0-9][0-9]?.?[0-9]?[0-9]")
+            for entry in entries:
+                if regex.match(entry):
+                    print(entry)
+        case "arch":
+            regex = re.compile("[0-9][0-9][0-9][0-9].[0-9][0-9].[0-9][0-9]")
+            for entry in entries:
+                if "-" in entry:
+                    if (regex.match(entry.split('-')[1])) and (entry.split(".")[-1] == "iso"):
+                        print(entry)
+
+
+
 
 def main():
-    ftp = ftplib.FTP("localhost")
-    ftp.connect()
-    ftp.login()
-    ftp.set_pasv(True)
-    print(traverse(ftp))
+    os_list = {
+        "ubuntu",
+        "arch"
+    }
+    for os_entry in os_list:
+        ftp_traverse(os_entry)
 
     # if sys.argv[1:]:
     #     download(sys.argv[1:], "./")
