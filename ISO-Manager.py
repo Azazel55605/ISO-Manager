@@ -9,6 +9,7 @@ from functools import partial
 from threading import Event
 from typing import Iterable
 from urllib.request import urlopen
+from simple_term_menu import TerminalMenu
 
 from rich.progress import (
     BarColumn,
@@ -59,7 +60,7 @@ def copy_url(task_id: TaskID, url: str, path: str) -> None:
     progress.console.log(f"Downloaded {path}")
 
 
-def download(urls: Iterable[str], dest_dir: str):
+def download(urls, dest_dir: str):
     """Download multiple files to the given directory."""
 
     with progress:
@@ -77,45 +78,69 @@ def read_conf(name):
     return lines
 
 
+def create_download_link(server, cwd, filename):
+    print(server)
+    print(cwd)
+    print(filename)
+    link = f"https://{server}{cwd}/{filename}"
+    return link
+
+
 def ftp_traverse(os_name):
 
     conf_data = read_conf(os_name)
 
-    server = conf_data[0].split('= ')[1].strip()
-    cwd = conf_data[1].split('= ')[1].strip()
+    server = conf_data[1].split('= ')[1].strip()
+    cwd = conf_data[2].split('= ')[1].strip()
+    options = conf_data[3].split('= ')[1].strip()
 
     ftp = ftplib.FTP(server)
     ftp.login()
     ftp.cwd(cwd)
     entries = ftp.nlst()
+    return_files = []
     match os_name:
         case "ubuntu":
             regex = re.compile("[0-9][0-9].[0-9][0-9]?.?[0-9]?[0-9]")
+            versions = []
+            files = []
             for entry in entries:
                 if regex.match(entry):
-                    print(entry)
+                    versions.append(entry)
+            ftp.cwd(cwd + f"/{versions[-1]}")
+            newest_entries = ftp.nlst()
+            for new_entry in newest_entries:
+                if "-" in new_entry:
+                    if (versions[-1] == (new_entry.split('-')[1])) and (new_entry.split(".")[-1] == "iso"):
+                        print(new_entry)
+
+                        files.append(new_entry)
+            return_files.append(create_download_link(server, f"{cwd}/{versions[-1]}", files[int(options)]))
+
         case "arch":
             regex = re.compile("[0-9][0-9][0-9][0-9].[0-9][0-9].[0-9][0-9]")
+            files = []
             for entry in entries:
                 if "-" in entry:
                     if (regex.match(entry.split('-')[1])) and (entry.split(".")[-1] == "iso"):
                         print(entry)
+                        files.append(entry)
+            return_files.append(create_download_link(server, cwd, files[0]))
+    return return_files
 
 
 
 
 def main():
     os_list = {
-        "ubuntu",
-        "arch"
+        "ubuntu"
     }
-    for os_entry in os_list:
-        ftp_traverse(os_entry)
 
-    # if sys.argv[1:]:
-    #     download(sys.argv[1:], "./")
-    # else:
-    #     print("Usage:\n\tpython downloader.py URL1 URL2 URL3 (etc)")
+
+    for os_entry in os_list:
+        file = ftp_traverse(os_entry)
+        print(file)
+        download(file, "./")
 
 if __name__ == "__main__":
     main()
