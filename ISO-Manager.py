@@ -1,9 +1,6 @@
-"""
-A rudimentary URL downloader (like wget or curl) to demonstrate Rich progress bars.
-"""
-
 import os.path
 import sys
+import ftplib
 from concurrent.futures import ThreadPoolExecutor
 import signal
 from functools import partial
@@ -71,11 +68,30 @@ def download(urls: Iterable[str], dest_dir: str):
                 task_id = progress.add_task("download", filename=filename, start=False)
                 pool.submit(copy_url, task_id, url, dest_path)
 
+def traverse(ftp, depth=0):
+    if depth > 10:
+        return ['depth > 10']
+    level = {}
+    for entry in (path for path in ftp.nlst() if path not in ('.', '..')):
+        try:
+            ftp.cwd(entry)
+            level[entry] = traverse(ftp, depth+1)
+            ftp.cwd('..')
+        except:
+            level[entry] = None
+    return level
+
+def main():
+    ftp = ftplib.FTP("localhost")
+    ftp.connect()
+    ftp.login()
+    ftp.set_pasv(True)
+    print(traverse(ftp))
+
+    # if sys.argv[1:]:
+    #     download(sys.argv[1:], "./")
+    # else:
+    #     print("Usage:\n\tpython downloader.py URL1 URL2 URL3 (etc)")
 
 if __name__ == "__main__":
-    # Try with https://releases.ubuntu.com/noble/ubuntu-24.04-desktop-amd64.iso
-    # and https://releases.ubuntu.com/noble/ubuntu-24.04-live-server-amd64.iso
-    if sys.argv[1:]:
-        download(sys.argv[1:], "./")
-    else:
-        print("Usage:\n\tpython downloader.py URL1 URL2 URL3 (etc)")
+    main()
