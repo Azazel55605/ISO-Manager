@@ -27,8 +27,7 @@ SETTINGS_FILE = "./ISO-Manager.conf"
 
 #test vars
 BLOCK_DOWNLOAD = False
-TEST_FTP_CONNECTION = True
-
+TEST_FTP_CONNECTION = False
 # settings
 download_path = ""
 max_simultaneous_downloads = 0
@@ -117,6 +116,41 @@ def create_download_link(server, cwd, filename):
     return link
 
 
+def ubuntu_model_manager(server, cwd, options, ftp, entries, version):
+    regex = re.compile("[0-9][0-9].[0-9][0-9]?.?[0-9]?[0-9]")
+    versions = []
+    up_to_date_version = -1
+    files = []
+    for entry in entries:
+        if regex.match(entry):
+            versions.append(entry)
+
+    if version == 0:
+        ftp.cwd(cwd + f"/{versions[up_to_date_version]}")
+    elif version == 1 or version == 2:
+        ftp.cwd(cwd + f"/{versions[up_to_date_version]}")
+        if not ("release" in ftp.nlst()):
+            print("skipping beta version")
+            up_to_date_version = -2
+
+        ftp.cwd(cwd + f"/{versions[up_to_date_version]}/release")
+
+    newest_entries = ftp.nlst()
+    for new_entry in newest_entries:
+        if "-" in new_entry:
+            if version == 0 or version == 1:
+                if (versions[up_to_date_version] == (new_entry.split('-')[1])) and (new_entry.split(".")[-1] == "iso"):
+                    files.append(new_entry)
+            elif version == 2:
+                if (versions[up_to_date_version] == (new_entry.split('-')[2])) and (new_entry.split(".")[-1] == "iso"):
+                    files.append(new_entry)
+
+    if version == 0:
+        return create_download_link(server, f"{cwd}/{versions[up_to_date_version]}", files[int(options)])
+    elif version == 1 or version == 2:
+        return create_download_link(server, f"{cwd}/{versions[up_to_date_version]}/release", files[int(options)])
+
+
 def ftp_traverse(os_name, server, cwd, options):
     ftp = ftplib.FTP(server)
     ftp.login()
@@ -125,53 +159,13 @@ def ftp_traverse(os_name, server, cwd, options):
     return_files = []
     match os_name:
         case "ubuntu" | "ubuntu-server":
-            regex = re.compile("[0-9][0-9].[0-9][0-9]?.?[0-9]?[0-9]")
-            versions = []
-            files = []
-            for entry in entries:
-                if regex.match(entry):
-                    versions.append(entry)
-            ftp.cwd(cwd + f"/{versions[-1]}")
-            newest_entries = ftp.nlst()
-            print(newest_entries)
-            for new_entry in newest_entries:
-                if "-" in new_entry:
-                    if (versions[-1] == (new_entry.split('-')[1])) and (new_entry.split(".")[-1] == "iso"):
-                        files.append(new_entry)
-
-            return_files.append(create_download_link(server, f"{cwd}/{versions[-1]}", files[int(options)]))
+            return_files.append(ubuntu_model_manager(server, cwd, options, ftp, entries, 0))
 
         case "edubuntu" | "ubuntu-cinnamon" | "lubuntu" | "kubuntu" | "xubuntu" | "xubuntu-minimal"| "ubuntu-studio":
-            regex = re.compile("[0-9][0-9].[0-9][0-9]?.?[0-9]?[0-9]")
-            versions = []
-            files = []
-            for entry in entries:
-                if regex.match(entry):
-                    versions.append(entry)
-            ftp.cwd(cwd + f"/{versions[-1]}/release")
-            newest_entries = ftp.nlst()
-            for new_entry in newest_entries:
-                if "-" in new_entry:
-                    if (versions[-1] == (new_entry.split('-')[1])) and (new_entry.split(".")[-1] == "iso"):
-                        files.append(new_entry)
-
-            return_files.append(create_download_link(server, f"{cwd}/{versions[-1]}", files[int(options)]))
+            return_files.append(ubuntu_model_manager(server, cwd, options, ftp, entries, 1))
 
         case "ubuntu-budgie" | "ubuntu-unity" | "ubuntu-mate":
-            regex = re.compile("[0-9][0-9].[0-9][0-9]?.?[0-9]?[0-9]")
-            versions = []
-            files = []
-            for entry in entries:
-                if regex.match(entry):
-                    versions.append(entry)
-            ftp.cwd(cwd + f"/{versions[-1]}/release")
-            newest_entries = ftp.nlst()
-            for new_entry in newest_entries:
-                if "-" in new_entry:
-                    if (versions[-1] == (new_entry.split('-')[2])) and (new_entry.split(".")[-1] == "iso"):
-                        files.append(new_entry)
-
-            return_files.append(create_download_link(server, f"{cwd}/{versions[-1]}", files[int(options)]))
+            return_files.append(ubuntu_model_manager(server, cwd, options, ftp, entries, 2))
 
         case "arch":
             regex = re.compile("[0-9][0-9][0-9][0-9].[0-9][0-9].[0-9][0-9]")
@@ -188,7 +182,7 @@ def ftp_traverse(os_name, server, cwd, options):
 def update(os_list, test=False):
     file = []
     os_objects = []
-    categorys = []
+    categories = []
     download_paths = []
 
     for os_entry in os_list:
@@ -203,9 +197,9 @@ def update(os_list, test=False):
     for object in os_objects:
         object_index = os_objects.index(object)
         file.append(ftp_traverse(os_objects[object_index][0], os_objects[object_index][2], os_objects[object_index][3], os_objects[object_index][4]))
-        categorys.append(os_objects[object_index][1])
+        categories.append(os_objects[object_index][1])
 
-    for path in categorys:
+    for path in categories:
         download_paths.append(f"{download_path}/{path}")
 
     if test:
@@ -290,6 +284,8 @@ def main():
                                 update(update_list)
                             else:
                                 update([temp[system_index].split(".")[0]], TEST_FTP_CONNECTION)
+
+                exit()
 
             case 2:
                 pass
