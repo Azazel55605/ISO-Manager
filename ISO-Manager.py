@@ -9,7 +9,10 @@ from functools import partial
 from os.path import exists
 from threading import Event
 from urllib.request import urlopen
+
 from simple_term_menu import TerminalMenu
+import requests
+from bs4 import BeautifulSoup
 
 from rich.progress import (
     BarColumn,
@@ -28,6 +31,7 @@ SETTINGS_FILE = "./ISO-Manager.conf"
 #test vars
 BLOCK_DOWNLOAD = False
 TEST_FTP_CONNECTION = False
+
 # settings
 download_path = ""
 max_simultaneous_downloads = 0
@@ -41,7 +45,6 @@ def read_settings(settings_file):
 
     download_path = conf_data[0].split('= ')[1].strip()
     max_simultaneous_downloads = int(conf_data[1].split('= ')[1].strip())
-
 
 progress = Progress(
     TextColumn("[bold blue]{task.fields[filename]}", justify="right"),
@@ -130,9 +133,7 @@ def ubuntu_model_manager(server, cwd, options, ftp, entries, version):
     elif version == 1 or version == 2:
         ftp.cwd(cwd + f"/{versions[up_to_date_version]}")
         if not ("release" in ftp.nlst()):
-            print("skipping beta version")
             up_to_date_version = -2
-
         ftp.cwd(cwd + f"/{versions[up_to_date_version]}/release")
 
     newest_entries = ftp.nlst()
@@ -149,6 +150,30 @@ def ubuntu_model_manager(server, cwd, options, ftp, entries, version):
         return create_download_link(server, f"{cwd}/{versions[up_to_date_version]}", files[int(options)])
     elif version == 1 or version == 2:
         return create_download_link(server, f"{cwd}/{versions[up_to_date_version]}/release", files[int(options)])
+
+
+def http_traverse(os_name, server, cwd, options):
+    forward_link = ""
+    object = []
+    fp = requests.get(f"https://{server}{cwd}")
+    soup = BeautifulSoup(fp.content, 'html.parser')
+    regex = re.compile("[0-9][0-9][0-9][0-9][0-9][0-9]/")
+    for link in soup.find_all("a", href=True):
+        if regex.match(link["href"]):
+            object.append(link["href"])
+
+    forward_link += str(object[-1])
+    new_link = f"https://{server}{cwd}/{forward_link}"
+    fp = requests.get(new_link)
+    soup = BeautifulSoup(fp.content, 'html.parser')
+    file = ""
+    for link in soup.find_all("a", href=True):
+        if link["href"].split(".")[-1] == "iso":
+            file = link["href"]
+
+    download_links = [f"{new_link}/{file}"]
+    return download_links
+
 
 
 def ftp_traverse(os_name, server, cwd, options):
@@ -196,7 +221,10 @@ def update(os_list, test=False):
 
     for object in os_objects:
         object_index = os_objects.index(object)
-        file.append(ftp_traverse(os_objects[object_index][0], os_objects[object_index][2], os_objects[object_index][3], os_objects[object_index][4]))
+        if not os_objects[object_index][1] == "garuda":
+            file.append(ftp_traverse(os_objects[object_index][0], os_objects[object_index][2], os_objects[object_index][3], os_objects[object_index][4]))
+        else:
+            file.append(http_traverse(os_objects[object_index][0], os_objects[object_index][2], os_objects[object_index][3], os_objects[object_index][4]))
         categories.append(os_objects[object_index][1])
 
     for path in categories:
@@ -292,7 +320,7 @@ def main():
             case 3:
                 pass
             case 4:
-                pass
+                http_traverse("garuda", "iso.builds.garudalinux.org", "/iso/garuda/cinnamon", "0")
             case 5:
                 run = False
 
