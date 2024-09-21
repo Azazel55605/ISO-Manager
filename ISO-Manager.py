@@ -30,7 +30,7 @@ SETTINGS_FILE = "./ISO-Manager.conf"
 
 #test vars
 BLOCK_DOWNLOAD = False
-TEST_FTP_CONNECTION = False
+TEST_FTP_CONNECTION = True
 
 # settings
 download_path = ""
@@ -153,27 +153,41 @@ def ubuntu_model_manager(server, cwd, options, ftp, entries, version):
 
 
 def http_traverse(os_name, server, cwd, options):
-    forward_link = ""
-    object = []
-    fp = requests.get(f"https://{server}{cwd}")
-    soup = BeautifulSoup(fp.content, 'html.parser')
-    regex = re.compile("[0-9][0-9][0-9][0-9][0-9][0-9]/")
-    for link in soup.find_all("a", href=True):
-        if regex.match(link["href"]):
-            object.append(link["href"])
+    options = int(options.strip())
+    download_links = []
+    if "garuda" in os_name:
+        forward_link = ""
+        object = []
+        fp = requests.get(f"https://{server}{cwd}")
+        soup = BeautifulSoup(fp.content, 'html.parser')
+        regex = re.compile("[0-9][0-9][0-9][0-9][0-9][0-9]/")
+        for link in soup.find_all("a", href=True):
+            if regex.match(link["href"]):
+                object.append(link["href"])
 
-    forward_link += str(object[-1])
-    new_link = f"https://{server}{cwd}/{forward_link}"
-    fp = requests.get(new_link)
-    soup = BeautifulSoup(fp.content, 'html.parser')
-    file = ""
-    for link in soup.find_all("a", href=True):
-        if link["href"].split(".")[-1] == "iso":
-            file = link["href"]
+        forward_link += str(object[-1])
+        new_link = f"https://{server}{cwd}/{forward_link}"
+        fp = requests.get(new_link)
+        soup = BeautifulSoup(fp.content, 'html.parser')
+        file = ""
+        for link in soup.find_all("a", href=True):
+            if link["href"].split(".")[-1] == "iso":
+                file = link["href"]
 
-    download_links = [f"{new_link}/{file}"]
+        download_links.append(f"{new_link}/{file}")
+    elif "kali" in os_name:
+        fp = requests.get(f"https://{server}{cwd}")
+        soup = BeautifulSoup(fp.content, 'html.parser')
+        regex = re.compile("[0-9][0-9][0-9][0-9].[0-9]")
+        new_link = f"https://{server}{cwd}"
+        files = []
+        for link in soup.find_all("a", href=True):
+            if link["href"].split("-")[-1] == "amd64.iso":
+                files.append(link["href"])
+
+        download_links.append(f"{new_link}/{files[options]}")
+
     return download_links
-
 
 
 def ftp_traverse(os_name, server, cwd, options):
@@ -221,7 +235,10 @@ def update(os_list, test=False):
 
     for object in os_objects:
         object_index = os_objects.index(object)
-        if not os_objects[object_index][1] == "garuda":
+
+        http_list = ["garuda", "kali"]
+
+        if not os_objects[object_index][1] in http_list:
             file.append(ftp_traverse(os_objects[object_index][0], os_objects[object_index][2], os_objects[object_index][3], os_objects[object_index][4]))
         else:
             file.append(http_traverse(os_objects[object_index][0], os_objects[object_index][2], os_objects[object_index][3], os_objects[object_index][4]))
@@ -320,7 +337,7 @@ def main():
             case 3:
                 pass
             case 4:
-                http_traverse("garuda", "iso.builds.garudalinux.org", "/iso/garuda/cinnamon", "0")
+                pass
             case 5:
                 run = False
 
