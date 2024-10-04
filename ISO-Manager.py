@@ -3,6 +3,7 @@
 import os
 import ftplib
 import re
+import shutil
 from concurrent.futures import ThreadPoolExecutor
 import signal
 from functools import partial
@@ -14,6 +15,7 @@ from simple_term_menu import TerminalMenu
 import requests
 from bs4 import BeautifulSoup
 
+from rich.console import Console
 from rich.progress import (
     BarColumn,
     DownloadColumn,
@@ -28,6 +30,9 @@ from rich.progress import (
 MODULE_PATH = "./Modules/"
 SETTINGS_FILE = "./ISO-Manager.conf"
 
+#run vars
+downloaded_distros = []
+
 #test vars
 BLOCK_DOWNLOAD = False
 TEST_FTP_CONNECTION = False
@@ -35,6 +40,10 @@ TEST_FTP_CONNECTION = False
 # settings
 download_path = ""
 max_simultaneous_downloads = 0
+
+def clear():
+    os.system('clear')
+
 
 def read_settings(settings_file):
     global download_path
@@ -45,6 +54,13 @@ def read_settings(settings_file):
 
     download_path = conf_data[0].split('= ')[1].strip()
     max_simultaneous_downloads = int(conf_data[1].split('= ')[1].strip())
+
+
+def setup():
+    # create Download directory
+    if not exists(download_path):
+        os.makedirs(download_path)
+
 
 progress = Progress(
     TextColumn("[bold blue]{task.fields[filename]}", justify="right"),
@@ -91,6 +107,8 @@ def download(urls, dest_dirs):
     if BLOCK_DOWNLOAD:
         print("Downloads blocked through settings")
         print("Usually because of testing purposes")
+        print(urls)
+        print(dest_dirs)
         return
 
     with progress:
@@ -238,7 +256,7 @@ def ftp_traverse(os_name, server, cwd, options):
     return return_files
 
 
-def update(os_list, test=False):
+def update(os_list, check_version=False):
     file = []
     os_objects = []
     categories = []
@@ -251,34 +269,56 @@ def update(os_list, test=False):
 
         temp.insert(0, os_entry)
         os_objects.append(temp)
-        #
 
-    for object in os_objects:
-        object_index = os_objects.index(object)
+    console = Console()
+    with console.status("[bold green]Compiling files...") as status:
+        for object in os_objects:
+            object_index = os_objects.index(object)
 
-        http_list = ["garuda", "kali", "mint"]
+            http_list = ["garuda", "kali", "mint"]
 
-        if not os_objects[object_index][1] in http_list:
-            file.append(ftp_traverse(os_objects[object_index][0], os_objects[object_index][2], os_objects[object_index][3], os_objects[object_index][4]))
-        else:
-            file.append(http_traverse(os_objects[object_index][0], os_objects[object_index][2], os_objects[object_index][3], os_objects[object_index][4]))
-        categories.append(os_objects[object_index][1])
+            if not os_objects[object_index][1] in http_list:
+                file.append(ftp_traverse(os_objects[object_index][0], os_objects[object_index][2], os_objects[object_index][3], os_objects[object_index][4]))
+            else:
+                file.append(http_traverse(os_objects[object_index][0], os_objects[object_index][2], os_objects[object_index][3], os_objects[object_index][4]))
+            categories.append(os_objects[object_index][1])
+            console.log(f"Completed file: {os_objects[object_index][0]}")
 
     for path in categories:
         download_paths.append(f"{download_path}/{path}")
 
-    if test:
-        print(file)
-        print(download_path)
+    if check_version:
+        return [file, download_paths, os_list]
     else:
         download(file, download_paths)
 
 
+def cleanup_old_files():
+    total_size = 0
+    folder_size = []
+    folders = os.listdir(download_path)
+    for folder in folders:
+        if exists(f"{download_path}/{folder}/old"):
+            size = 0
+            for entry in os.listdir(f"{download_path}/{folder}/old"):
+                if os.path.isfile(f"{download_path}/{folder}/old/{entry}"):
+                    size += os.path.getsize(f"{download_path}/{folder}/old/{entry}")
+            total_size += size
+            folder_size.append([folder, size])
+
+    print(total_size)
+    print(folder_size)
+
+
 def main():
+    clear()
     read_settings(SETTINGS_FILE)
+    setup()
+    clear()
 
     options = [
         "Download All",
+        "Check For Updates",
         "View Category",
         "Manage Elements",
         "Settings",
@@ -290,6 +330,7 @@ def main():
     run = True
 
     while run:
+        clear()
         menu_entry_index = terminal_menu.show()
 
         match menu_entry_index:
@@ -298,9 +339,103 @@ def main():
                 os_list = []
                 for module in modules:
                     os_list.append(module.split('.')[0])
-                update(os_list)
+                update(os_list, TEST_FTP_CONNECTION)
                 run = False
             case 1:
+                modules = os.listdir(MODULE_PATH)
+                os_list = []
+                systems_to_update = []
+                old_files = []
+                for module in modules:
+                    os_list.append(module.split('.')[0])
+                object = update(os_list, True)
+                existing_downloads = []
+                for folder in os.listdir(download_path):
+                    for file in os.listdir(f"{download_path}/{folder}"):
+                        existing_downloads.append(file)
+
+                # check if any given files already exist
+                for entry in object[0]:
+                    filename = entry[0].split('/')[-1]
+                    file_download_path = str(object[1][object[0].index(entry)])
+                    if filename in existing_downloads:
+                        print(f"{object[2][object[0].index(entry)]} up to date")
+                    else:
+                        match file_download_path.split("/")[-1]:
+                            case "arch" :
+                                for element in os.listdir(file_download_path):
+                                    if f"{filename.split('-')[0]}" in element:
+                                        print(f"an older file exists for {filename} -> {object[2][object[0].index(entry)]}")
+                                        systems_to_update.append(object[2][object[0].index(entry)])
+                                        old_files.append(element)
+                            case "ubuntu":
+                                match filename.split('-')[1]:
+                                    case "budgie" | "mate" | "unity":
+                                        for element in os.listdir(file_download_path):
+                                            if f"{filename.split('-')[0]}-{filename.split('-')[1]}" in element:
+                                                print(f"an older file exists for {filename} -> {object[2][object[0].index(entry)]}")
+                                                systems_to_update.append(object[2][object[0].index(entry)])
+                                                old_files.append(element)
+                                    case _:
+                                        if filename.split('-')[0] == "ubuntu":
+                                            for element in os.listdir(file_download_path):
+                                                if element.split('-')[0] == "ubuntu" and not (element.split('-')[1] in ['budgie', 'unity', 'mate']):
+                                                    if "beta" in filename:
+                                                        if f"{filename.split('-')[0]}" in element and f"{filename.split('-')[3]}" in element:
+                                                            print(f"an older file exists for {filename} -> {object[2][object[0].index(entry)]}")
+                                                            systems_to_update.append(object[2][object[0].index(entry)])
+                                                            old_files.append(element)
+                                                    else:
+                                                        if f"{filename.split('-')[0]}" in element and f"{filename.split('-')[2]}" in element:
+                                                            print(f"an older file exists for {filename} -> {object[2][object[0].index(entry)]}")
+                                                            systems_to_update.append(object[2][object[0].index(entry)])
+                                                            old_files.append(element)
+                                        else:
+                                            for element in os.listdir(file_download_path):
+                                                if f"{filename.split('-')[0]}" in element:
+                                                    print(f"an older file exists for {filename} -> {object[2][object[0].index(entry)]}")
+                                                    systems_to_update.append(object[2][object[0].index(entry)])
+                                                    old_files.append(element)
+                            case "garuda":
+                                for element in os.listdir(file_download_path):
+                                    if f"{filename.split(filename.split('-')[-1])[0]}" in element:
+                                        print(f"an older file exists for {filename} -> {object[2][object[0].index(entry)]}")
+                                        systems_to_update.append(object[2][object[0].index(entry)])
+                                        old_files.append(element)
+                            case "kali":
+                                for element in os.listdir(file_download_path):
+                                    if f"{filename.split('-')[0]}" in element and f"{filename.split('-')[3]}" in element and f"{filename.split('-')[4]}" in element:
+                                        print(f"an older file exists for {filename} -> {object[2][object[0].index(entry)]}")
+                                        systems_to_update.append(object[2][object[0].index(entry)])
+                                        old_files.append(element)
+                            case "mint":
+                                for element in os.listdir(file_download_path):
+                                    if f"{filename.split('-')[0]}" in element and f"{filename.split('-')[2]}" in element:
+                                        print(f"an older file exists for {filename} -> {object[2][object[0].index(entry)]}")
+                                        systems_to_update.append(object[2][object[0].index(entry)])
+                                        old_files.append(element)
+
+                clear()
+                terminal_menu_update = TerminalMenu(systems_to_update, multi_select=True)
+                selection = terminal_menu_update.show()
+                os_update_list = []
+                if selection:
+                    for entry in selection:
+                        os_update_list.append(systems_to_update[entry])
+
+                    if os_update_list:
+                        for entry in os_update_list:
+                            if not exists(f"{object[1][object[2].index(entry)]}/old"):
+                                os.makedirs(f"{object[1][object[2].index(entry)]}/old")
+                            shutil.move(f"{object[1][object[2].index(entry)]}/{old_files[systems_to_update.index(entry)]}", f"{object[1][object[2].index(entry)]}/old/{old_files[systems_to_update.index(entry)]}")
+
+
+                        update(os_update_list, TEST_FTP_CONNECTION)
+                        cleanup_old_files()
+                else:
+                    print("Nothing selected to update")
+
+            case 2:
                 available = os.listdir(MODULE_PATH)
                 modules = []
 
@@ -346,19 +481,20 @@ def main():
                                 for element in systems:
                                     update_list.append(element.split('.')[0])
 
-                                update(update_list)
+                                update(update_list, TEST_FTP_CONNECTION)
                             else:
                                 update([temp[system_index].split(".")[0]], TEST_FTP_CONNECTION)
 
                 exit()
 
-            case 2:
-                pass
             case 3:
                 pass
             case 4:
                 pass
             case 5:
+                cleanup_old_files()
+                run = False
+            case 6:
                 run = False
 
 
