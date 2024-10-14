@@ -11,6 +11,7 @@ from os.path import exists
 from threading import Event
 from urllib.request import urlopen
 
+from apparmor.common import readkey
 from simple_term_menu import TerminalMenu
 import requests
 from bs4 import BeautifulSoup
@@ -363,57 +364,84 @@ def main():
                     else:
                         match file_download_path.split("/")[-1]:
                             case "arch" :
-                                for element in os.listdir(file_download_path):
-                                    if f"{filename.split('-')[0]}" in element:
-                                        print(f"an older file exists for {filename} -> {object[2][object[0].index(entry)]}")
-                                        systems_to_update.append(object[2][object[0].index(entry)])
-                                        old_files.append(element)
+                                if exists(file_download_path):
+                                    for element in os.listdir(file_download_path):
+                                        if f"{filename.split('-')[0]}" in element:
+                                            print(f"an older file exists for {filename} -> {object[2][object[0].index(entry)]}")
+                                            if not object[2][object[0].index(entry)] in systems_to_update:
+                                                systems_to_update.append(object[2][object[0].index(entry)])
+                                            if not element in old_files:
+                                                old_files.append(element)
                             case "ubuntu":
                                 match filename.split('-')[1]:
                                     case "budgie" | "mate" | "unity":
-                                        for element in os.listdir(file_download_path):
-                                            if f"{filename.split('-')[0]}-{filename.split('-')[1]}" in element:
-                                                print(f"an older file exists for {filename} -> {object[2][object[0].index(entry)]}")
-                                                systems_to_update.append(object[2][object[0].index(entry)])
-                                                old_files.append(element)
+                                        if exists(file_download_path):
+                                            for element in os.listdir(file_download_path):
+                                                if f"{filename.split('-')[0]}-{filename.split('-')[1]}" in element:
+                                                    print(f"an older file exists for {filename} -> {object[2][object[0].index(entry)]}")
+                                                    if not object[2][object[0].index(entry)] in systems_to_update:
+                                                        systems_to_update.append(object[2][object[0].index(entry)])
+                                                    if not element in old_files:
+                                                        old_files.append(element)
                                     case _:
                                         if filename.split('-')[0] == "ubuntu":
-                                            for element in os.listdir(file_download_path):
-                                                if element.split('-')[0] == "ubuntu" and not (element.split('-')[1] in ['budgie', 'unity', 'mate']):
-                                                    if "beta" in filename:
-                                                        if f"{filename.split('-')[0]}" in element and f"{filename.split('-')[3]}" in element:
-                                                            print(f"an older file exists for {filename} -> {object[2][object[0].index(entry)]}")
-                                                            systems_to_update.append(object[2][object[0].index(entry)])
-                                                            old_files.append(element)
-                                                    else:
-                                                        if f"{filename.split('-')[0]}" in element and f"{filename.split('-')[2]}" in element:
-                                                            print(f"an older file exists for {filename} -> {object[2][object[0].index(entry)]}")
-                                                            systems_to_update.append(object[2][object[0].index(entry)])
-                                                            old_files.append(element)
+                                            if exists(file_download_path):
+                                                for element in os.listdir(file_download_path):
+                                                    if element.split('-')[0] == "ubuntu" and not (element.split('-')[1] in ['budgie', 'unity', 'mate']):
+                                                        if "beta" in filename:
+                                                            if f"{filename.split('-')[0]}" in element and f"{filename.split('-')[3]}" in element:
+                                                                print(f"an older file exists for {filename} -> {object[2][object[0].index(entry)]}")
+                                                                if not object[2][
+                                                                           object[0].index(entry)] in systems_to_update:
+                                                                    systems_to_update.append(
+                                                                        object[2][object[0].index(entry)])
+                                                                if not element in old_files:
+                                                                    old_files.append(element)
+                                                        else:
+                                                            if f"{filename.split('-')[0]}" in element and f"{filename.split('-')[2]}" in element:
+                                                                print(f"an older file exists for {filename} -> {object[2][object[0].index(entry)]}")
+                                                                if not object[2][
+                                                                           object[0].index(entry)] in systems_to_update:
+                                                                    systems_to_update.append(
+                                                                        object[2][object[0].index(entry)])
+                                                                if not element in old_files:
+                                                                    old_files.append(element)
                                         else:
-                                            for element in os.listdir(file_download_path):
-                                                if f"{filename.split('-')[0]}" in element:
-                                                    print(f"an older file exists for {filename} -> {object[2][object[0].index(entry)]}")
-                                                    systems_to_update.append(object[2][object[0].index(entry)])
-                                                    old_files.append(element)
+                                            if exists(file_download_path):
+                                                for element in os.listdir(file_download_path):
+                                                    if f"{filename.split('-')[0]}" in element:
+                                                        print(f"an older file exists for {filename} -> {object[2][object[0].index(entry)]}")
+                                                        if not object[2][object[0].index(entry)] in systems_to_update:
+                                                            systems_to_update.append(object[2][object[0].index(entry)])
+                                                        if not element in old_files:
+                                                            old_files.append(element)
                             case "garuda":
-                                for element in os.listdir(file_download_path):
-                                    if f"{filename.split(filename.split('-')[-1])[0]}" in element:
-                                        print(f"an older file exists for {filename} -> {object[2][object[0].index(entry)]}")
-                                        systems_to_update.append(object[2][object[0].index(entry)])
-                                        old_files.append(element)
+                                if exists(file_download_path):
+                                    for element in os.listdir(file_download_path):
+                                        if f"{filename.split(filename.split('-')[-1])[0]}" in element:
+                                            print(f"an older file exists for {filename} -> {object[2][object[0].index(entry)]}")
+                                            if not object[2][object[0].index(entry)] in systems_to_update:
+                                                systems_to_update.append(object[2][object[0].index(entry)])
+                                            if not element in old_files:
+                                                old_files.append(element)
                             case "kali":
-                                for element in os.listdir(file_download_path):
-                                    if f"{filename.split('-')[0]}" in element and f"{filename.split('-')[3]}" in element and f"{filename.split('-')[4]}" in element:
-                                        print(f"an older file exists for {filename} -> {object[2][object[0].index(entry)]}")
-                                        systems_to_update.append(object[2][object[0].index(entry)])
-                                        old_files.append(element)
+                                if exists(file_download_path):
+                                    for element in os.listdir(file_download_path):
+                                        if f"{filename.split('-')[0]}" in element and f"{filename.split('-')[3]}" in element and f"{filename.split('-')[4]}" in element:
+                                            print(f"an older file exists for {filename} -> {object[2][object[0].index(entry)]}")
+                                            if not object[2][object[0].index(entry)] in systems_to_update:
+                                                systems_to_update.append(object[2][object[0].index(entry)])
+                                            if not element in old_files:
+                                                old_files.append(element)
                             case "mint":
-                                for element in os.listdir(file_download_path):
-                                    if f"{filename.split('-')[0]}" in element and f"{filename.split('-')[2]}" in element:
-                                        print(f"an older file exists for {filename} -> {object[2][object[0].index(entry)]}")
-                                        systems_to_update.append(object[2][object[0].index(entry)])
-                                        old_files.append(element)
+                                if exists(file_download_path):
+                                    for element in os.listdir(file_download_path):
+                                        if f"{filename.split('-')[0]}" in element and f"{filename.split('-')[2]}" in element:
+                                            print(f"an older file exists for {filename} -> {object[2][object[0].index(entry)]}")
+                                            if not object[2][object[0].index(entry)] in systems_to_update:
+                                                systems_to_update.append(object[2][object[0].index(entry)])
+                                            if not element in old_files:
+                                                old_files.append(element)
 
                 clear()
                 terminal_menu_update = TerminalMenu(systems_to_update, multi_select=True)
@@ -428,7 +456,6 @@ def main():
                             if not exists(f"{object[1][object[2].index(entry)]}/old"):
                                 os.makedirs(f"{object[1][object[2].index(entry)]}/old")
                             shutil.move(f"{object[1][object[2].index(entry)]}/{old_files[systems_to_update.index(entry)]}", f"{object[1][object[2].index(entry)]}/old/{old_files[systems_to_update.index(entry)]}")
-
 
                         update(os_update_list, TEST_FTP_CONNECTION)
                         cleanup_old_files()
