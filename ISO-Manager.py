@@ -11,7 +11,6 @@ from os.path import exists
 from threading import Event
 from urllib.request import urlopen
 
-from apparmor.common import readkey
 from simple_term_menu import TerminalMenu
 import requests
 from bs4 import BeautifulSoup
@@ -226,6 +225,18 @@ def http_traverse(os_name, server, cwd, options):
 
         download_links.append(f"{new_link}/{files[options]}")
 
+    elif "manjaro" in os_name:
+        forward_link = ""
+        object = []
+        fp = requests.get(f"https://{server}{cwd}")
+        soup = BeautifulSoup(fp.content, 'html.parser')
+        for link in soup.find_all("a", href=True):
+            if "download" in link["href"] and "manjaro" in link["href"]:
+                object.append(link["href"])
+
+        forward_link += str(object[options])
+        download_links.append(forward_link)
+
     return download_links
 
 
@@ -276,7 +287,7 @@ def update(os_list, check_version=False):
         for object in os_objects:
             object_index = os_objects.index(object)
 
-            http_list = ["garuda", "kali", "mint"]
+            http_list = ["garuda", "kali", "mint", "manjaro"]
 
             if not os_objects[object_index][1] in http_list:
                 file.append(ftp_traverse(os_objects[object_index][0], os_objects[object_index][2], os_objects[object_index][3], os_objects[object_index][4]))
@@ -434,6 +445,15 @@ def main():
                                             if not element in old_files:
                                                 old_files.append(element)
                             case "mint":
+                                if exists(file_download_path):
+                                    for element in os.listdir(file_download_path):
+                                        if f"{filename.split('-')[0]}" in element and f"{filename.split('-')[2]}" in element:
+                                            print(f"an older file exists for {filename} -> {object[2][object[0].index(entry)]}")
+                                            if not object[2][object[0].index(entry)] in systems_to_update:
+                                                systems_to_update.append(object[2][object[0].index(entry)])
+                                            if not element in old_files:
+                                                old_files.append(element)
+                            case "manjaro":
                                 if exists(file_download_path):
                                     for element in os.listdir(file_download_path):
                                         if f"{filename.split('-')[0]}" in element and f"{filename.split('-')[2]}" in element:
