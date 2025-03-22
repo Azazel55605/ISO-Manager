@@ -177,11 +177,14 @@ def http_traverse(os_name, server, cwd, options):
         forward_link = ""
         object = []
         fp = requests.get(f"https://{server}{cwd}")
+        print(fp)
         soup = BeautifulSoup(fp.content, 'html.parser')
         regex = re.compile("[0-9][0-9][0-9][0-9][0-9][0-9]/")
         for link in soup.find_all("a", href=True):
             if regex.match(link["href"]):
                 object.append(link["href"])
+
+        print(object)
 
         forward_link += str(object[-1])
         new_link = f"https://{server}{cwd}/{forward_link}"
@@ -244,6 +247,7 @@ def ftp_traverse(os_name, server, cwd, options):
     ftp = ftplib.FTP(server)
     ftp.login()
     ftp.cwd(cwd)
+    # print(ftp.nlst())
     entries = ftp.nlst()
     return_files = []
     match os_name:
@@ -481,7 +485,6 @@ def main():
                         cleanup_old_files()
                 else:
                     print("Nothing selected to update")
-
             case 2:
                 available = os.listdir(MODULE_PATH)
                 modules = []
@@ -503,6 +506,7 @@ def main():
                 run2 = True
                 exit_pos = module_names.index("back")
                 while run2:
+                    clear()
                     category_index = terminal_menu_2.show()
                     if category_index == exit_pos:
                         run2 = False
@@ -520,6 +524,7 @@ def main():
                         terminal_menu_3 = TerminalMenu(temp)
                         run3 = True
                         while run3:
+                            clear()
                             system_index = terminal_menu_3.show()
                             if system_index == exit_pos_2:
                                 run3 = False
@@ -531,9 +536,6 @@ def main():
                                 update(update_list, TEST_FTP_CONNECTION)
                             else:
                                 update([temp[system_index].split(".")[0]], TEST_FTP_CONNECTION)
-
-                exit()
-
             case 3:
                 pass
             case 4:
