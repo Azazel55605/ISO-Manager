@@ -145,7 +145,6 @@ def ubuntu_model_manager(server, cwd, options, ftp, entries, version):
     for entry in entries:
         if regex.match(entry):
             versions.append(entry)
-
     if version == 0:
         ftp.cwd(cwd + f"/{versions[up_to_date_version]}")
     elif version == 1 or version == 2:
@@ -177,14 +176,14 @@ def http_traverse(os_name, server, cwd, options):
         forward_link = ""
         object = []
         fp = requests.get(f"https://{server}{cwd}")
-        print(fp)
+        # print(fp)
         soup = BeautifulSoup(fp.content, 'html.parser')
         regex = re.compile("[0-9][0-9][0-9][0-9][0-9][0-9]/")
         for link in soup.find_all("a", href=True):
             if regex.match(link["href"]):
                 object.append(link["href"])
 
-        print(object)
+        # print(object)
 
         forward_link += str(object[-1])
         new_link = f"https://{server}{cwd}/{forward_link}"
@@ -247,14 +246,17 @@ def ftp_traverse(os_name, server, cwd, options):
     ftp = ftplib.FTP(server)
     ftp.login()
     ftp.cwd(cwd)
-    # print(ftp.nlst())
-    entries = ftp.nlst()
+    try:
+        entries = ftp.nlst()
+    except:
+        print(f"timeout on {server}{cwd}")
+        return ""
     return_files = []
     match os_name:
-        case "ubuntu" | "ubuntu-server":
+        case "":
             return_files.append(ubuntu_model_manager(server, cwd, options, ftp, entries, 0))
 
-        case "edubuntu" | "ubuntu-cinnamon" | "lubuntu" | "kubuntu" | "xubuntu" | "xubuntu-minimal"| "ubuntu-studio":
+        case "ubuntu" | "ubuntu-server" | "edubuntu" | "ubuntu-cinnamon" | "lubuntu" | "kubuntu" | "xubuntu" | "xubuntu-minimal"| "ubuntu-studio":
             return_files.append(ubuntu_model_manager(server, cwd, options, ftp, entries, 1))
 
         case "ubuntu-budgie" | "ubuntu-unity" | "ubuntu-mate":
