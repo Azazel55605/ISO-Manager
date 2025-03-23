@@ -253,10 +253,10 @@ def ftp_traverse(os_name, server, cwd, options):
         return ""
     return_files = []
     match os_name:
-        case "":
+        case "ubuntu" | "ubuntu-server":
             return_files.append(ubuntu_model_manager(server, cwd, options, ftp, entries, 0))
 
-        case "ubuntu" | "ubuntu-server" | "edubuntu" | "ubuntu-cinnamon" | "lubuntu" | "kubuntu" | "xubuntu" | "xubuntu-minimal"| "ubuntu-studio":
+        case "edubuntu" | "ubuntu-cinnamon" | "lubuntu" | "kubuntu" | "xubuntu" | "xubuntu-minimal"| "ubuntu-studio":
             return_files.append(ubuntu_model_manager(server, cwd, options, ftp, entries, 1))
 
         case "ubuntu-budgie" | "ubuntu-unity" | "ubuntu-mate":
