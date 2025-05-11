@@ -11,6 +11,7 @@ from os.path import exists
 from threading import Event
 from urllib.request import urlopen
 
+from click import pause
 from simple_term_menu import TerminalMenu
 import requests
 from bs4 import BeautifulSoup
@@ -375,6 +376,7 @@ def main():
                 # check if any given files already exist
                 for entry in object[0]:
                     filename = entry[0].split('/')[-1]
+                    print(filename)
                     file_download_path = str(object[1][object[0].index(entry)])
                     if filename in existing_downloads:
                         print(f"{object[2][object[0].index(entry)]} up to date")
@@ -462,7 +464,7 @@ def main():
                             case "manjaro":
                                 if exists(file_download_path):
                                     for element in os.listdir(file_download_path):
-                                        if f"{filename.split('-')[0]}" in element and f"{filename.split('-')[2]}" in element:
+                                        if f"{filename.split('-')[0]}" in element and f"{filename.split('-')[1]}" in element:
                                             print(f"an older file exists for {filename} -> {object[2][object[0].index(entry)]}")
                                             if not object[2][object[0].index(entry)] in systems_to_update:
                                                 systems_to_update.append(object[2][object[0].index(entry)])
